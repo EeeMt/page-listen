@@ -2,6 +2,7 @@ package me.ihxq.projects.pagelisten.email;
 
 import lombok.extern.slf4j.Slf4j;
 import me.ihxq.projects.pagelisten.config.SenderConfig;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 
 import javax.mail.*;
@@ -19,6 +20,7 @@ import java.util.Properties;
 @Service
 public class EmailSender {
     private final SenderConfig senderConfig;
+    private final EmailContentGenerator emailContentGenerator;
 
     private static final Properties PROPERTIES = new Properties() {{
         put("mail.smtp.auth", true);
@@ -28,11 +30,22 @@ public class EmailSender {
         put("mail.smtp.ssl.trust", "smtp.qiye.aliyun.com");
     }};
 
-    public EmailSender(SenderConfig senderConfig) {
+    public EmailSender(SenderConfig senderConfig, EmailContentGenerator emailContentGenerator) {
         this.senderConfig = senderConfig;
+        this.emailContentGenerator = emailContentGenerator;
     }
 
-    public void send(String content) throws MessagingException {
+    @Retryable
+    public void send(ChangeReport report) throws MessagingException {
+        this.send(emailContentGenerator.serializeToHtml(report));
+    }
+
+    @Retryable
+    public void send(ChangeRecord record) throws MessagingException {
+        this.send(serializeToHtml(record));
+    }
+
+    private void send(String content) throws MessagingException {
 
         log.info("Try sending email.");
         log.debug("Email content: {}", content);
@@ -58,5 +71,9 @@ public class EmailSender {
 
         Transport.send(message);
         log.info("Email successfully sent.");
+    }
+
+    private String serializeToHtml(ChangeRecord record) {
+        return "";
     }
 }
