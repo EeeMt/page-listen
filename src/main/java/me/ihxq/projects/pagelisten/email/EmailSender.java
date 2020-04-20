@@ -10,6 +10,7 @@ import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
+import java.time.LocalDate;
 import java.util.Properties;
 
 /**
@@ -37,15 +38,15 @@ public class EmailSender {
 
     @Retryable
     public void send(ChangeReport report) throws MessagingException {
-        this.send(emailContentGenerator.serializeToHtml(report));
+        this.send("Notice of " + LocalDate.now(), emailContentGenerator.serializeToHtml(report));
     }
 
     @Retryable
     public void send(ChangeRecord record) throws MessagingException {
-        this.send(serializeToHtml(record));
+        this.send("", serializeToHtml(record));
     }
 
-    private void send(String content) throws MessagingException {
+    private void send(String title, String content) throws MessagingException {
 
         log.info("Try sending email.");
         log.debug("Email content: {}", content);
@@ -59,7 +60,7 @@ public class EmailSender {
         message.setFrom(new InternetAddress(senderConfig.getSenderAddress()));
         message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(senderConfig.getToAddress()));
 
-        message.setSubject("Notice");
+        message.setSubject(title);
 
         MimeBodyPart mimeBodyPart = new MimeBodyPart();
         mimeBodyPart.setContent(content, "text/html");

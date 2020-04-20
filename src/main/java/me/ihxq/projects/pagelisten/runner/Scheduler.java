@@ -41,18 +41,21 @@ public class Scheduler {
                 .stream()
                 .map(item -> {
                     try {
-                        return checker.check(item);
+                        return checker.check(item, false);
                     } catch (Exception e) {
-                        log.error("Failed to check for: {}", item);
+                        log.error("Failed to check for: {}", item, e);
                         return null;
                     }
                 })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
         long total = runConfig.getListens().size();
-        long success = records.size();
+        long success = records.stream().filter(ChangeRecord::isSuccess).count();
         long failure = total - success;
-        long hit = records.stream().filter(ChangeRecord::isHit).count();
+        long hit = records.stream()
+                .map(ChangeRecord::getHit)
+                .filter(Objects::nonNull)
+                .filter(Boolean::booleanValue).count();
         ChangeReport report = ChangeReport.builder()
                 .startTime(startTime)
                 .endTime(LocalDateTime.now())

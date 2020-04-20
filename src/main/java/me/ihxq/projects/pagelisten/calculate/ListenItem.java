@@ -1,9 +1,6 @@
 package me.ihxq.projects.pagelisten.calculate;
 
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Data;
-import lombok.Getter;
+import lombok.*;
 import org.apache.commons.lang3.StringUtils;
 import org.openqa.selenium.By;
 
@@ -16,6 +13,8 @@ import java.util.Optional;
  **/
 @Data
 @Builder
+@AllArgsConstructor
+@NoArgsConstructor
 @Getter(AccessLevel.NONE)
 public class ListenItem {
     private String name;
@@ -25,7 +24,8 @@ public class ListenItem {
     private String url;
     private String cssSelector;
     private String xpathSelector;
-    private Duration waitTimeout;
+    @Builder.Default
+    private Duration waitTimeout = Duration.ofSeconds(10);
 
     /**
      * default is 10 seconds

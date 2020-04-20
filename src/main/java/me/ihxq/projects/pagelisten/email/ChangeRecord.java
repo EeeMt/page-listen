@@ -12,9 +12,10 @@ import lombok.Data;
 public class ChangeRecord {
     private String name;
     private String description;
-    private boolean hit;
+    private Boolean hit;
     private String operator;
     private String targetValue;
     private String currentValue;
     private String resultDescription;
+    private boolean success;
 }

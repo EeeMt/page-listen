@@ -8,18 +8,11 @@ import me.ihxq.projects.pagelisten.config.RunConfig;
 import me.ihxq.projects.pagelisten.email.ChangeRecord;
 import me.ihxq.projects.pagelisten.email.EmailSender;
 import org.openqa.selenium.By;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeDriverService;
-import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.WebDriverWait;
-import org.springframework.retry.annotation.Retryable;
+import org.openqa.selenium.TimeoutException;
+import org.openqa.selenium.WebDriverException;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PreDestroy;
-import java.util.Objects;
-
-import static org.openqa.selenium.support.ui.ExpectedConditions.presenceOfElementLocated;
+import javax.mail.MessagingException;
 
 /**
  * @author xq.h
@@ -30,25 +23,17 @@ import static org.openqa.selenium.support.ui.ExpectedConditions.presenceOfElemen
 public class Checker {
     private final EmailSender emailSender;
     private final RunConfig runConfig;
-    private final ChromeDriver driver;
+    private final Sniffer sniffer;
 
-    public Checker(EmailSender emailSender, RunConfig runConfig) {
+    public Checker(EmailSender emailSender,
+                   RunConfig runConfig,
+                   Sniffer sniffer) {
         this.emailSender = emailSender;
         this.runConfig = runConfig;
-
-        String chromeDriverPath = Objects.requireNonNull(this.getClass().getClassLoader().getResource(RunConfig.CHROME_DRIVER_PATH), "Driver not found.")
-                .getPath();
-        System.setProperty("webdriver.chrome.driver", chromeDriverPath);
-        ChromeOptions options = new ChromeOptions().addArguments(this.runConfig.getChromeOptions());
-        ChromeDriverService chromeDriverService = new ChromeDriverService.Builder()
-                .withSilent(true)
-                .build();
-        driver = new ChromeDriver(chromeDriverService, options);
-        log.info("Chrome driver initialized.");
+        this.sniffer = sniffer;
     }
 
-    @Retryable
-    public ChangeRecord check(ListenItem item) {
+    public ChangeRecord check(ListenItem item, boolean sendEmailOnHit) {
         log.info("Check for {}", item);
         By selector = item.getSelector().orElseThrow(() -> new RuntimeException("No selector."));
         String url = item.getUrl().orElseThrow(() -> new RuntimeException("No url."));
@@ -58,43 +43,51 @@ public class Checker {
         String name = item.getName().orElse("");
         String description = item.getDescription().orElse("");
 
-        WebDriverWait wait = new WebDriverWait(driver, item.getWaitTimeout().toSeconds());
 
-        driver.get(url);
-        WebElement webElement = wait.until(presenceOfElementLocated(selector));
-        scrollIntoView(webElement);
-        String content = webElement.getText();
+        boolean success = false;
+        String content = null;
+        Boolean hit = null;
+        String operateResultDescription = null;
+        try {
+            content = sniffer.sniff(url, selector, item.getWaitTimeout());
+            OperateResult operateResult = operator.operate(content, targetValue);
+            operateResultDescription = operateResult.getResultDescription();
+            hit = operateResult.isHit();
+            success = true;
+        } catch (WebDriverException e) {
+            Throwable cause = e.getCause();
+            while (e instanceof TimeoutException) {
+                cause = e.getCause();
+                if (cause instanceof WebDriverException) {
+                    e = (WebDriverException) cause;
+                }
+            }
+            if (cause instanceof WebDriverException) {
+                log.error("Failed to process {}, {}", item, cause.getMessage());
+            } else {
+                log.error("Failed to process {}", item, e);
+            }
+        } catch (Exception e) {
+            log.error("Failed to process {}", item, e);
+        }
 
-        OperateResult operateResult = operator.operate(content, targetValue);
-
-        driver.quit();
-        return ChangeRecord.builder()
+        ChangeRecord changeRecord = ChangeRecord.builder()
                 .name(name)
                 .description(description)
-                .hit(operateResult.isHit())
+                .hit(hit)
                 .currentValue(content)
                 .operator(operator.description)
                 .targetValue(targetValue)
-                .resultDescription(operateResult.getResultDescription())
+                .success(success)
+                .resultDescription(operateResultDescription)
                 .build();
-    }
-
-    @PreDestroy
-    public void close() {
-        log.info("Try to quit Chrome driver.");
-        try {
-            driver.quit();
-        } catch (Exception e) {
-            log.error("Failed to quit chrome driver.", e);
+        if (sendEmailOnHit) {
+            try {
+                emailSender.send(changeRecord);
+            } catch (MessagingException e) {
+                log.error("Failed to send email for hit.", e);
+            }
         }
-        log.info("Chrome driver quited.");
-    }
-
-    private void scrollIntoView(WebElement webElement) {
-        if (driver != null) {
-            driver.executeScript("arguments[0].scrollIntoView(true);", webElement);
-        } else {
-            log.warn("Driver is null.");
-        }
+        return changeRecord;
     }
 }

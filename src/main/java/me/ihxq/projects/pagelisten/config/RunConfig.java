@@ -35,4 +35,5 @@ public class RunConfig {
                     .url("https://nssurge.com/buy_now")
                     .build()
     ).collect(Collectors.toList());
+
 }
