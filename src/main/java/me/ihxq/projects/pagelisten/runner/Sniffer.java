@@ -8,7 +8,6 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeDriverService;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.WebDriverWait;
-import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PreDestroy;
@@ -41,9 +40,12 @@ public class Sniffer {
         log.info("Chrome driver initialized.");
     }
 
-    @Retryable
     public String sniff(String url, By selector, Duration waitTimeout) {
-        log.info("Sniff {} by {}", url, selector);
+        if (log.isDebugEnabled()) {
+            log.debug("Sniff '{}' by {}", url, selector);
+        } else {
+            log.info("Sniff '{}'", url);
+        }
         driver.get(url);
         WebDriverWait wait = new WebDriverWait(driver, waitTimeout.toSeconds());
         WebElement webElement = wait.until(presenceOfElementLocated(selector));
@@ -62,6 +64,7 @@ public class Sniffer {
             } else {
                 log.warn("Error occurred while quiting chrome driver, driver may not quit");
             }
+            return;
         }
         log.info("Chrome driver quited.");
     }

@@ -4,21 +4,22 @@ run:
       css-selector: "#root > div > section > div:nth-child(7) > a > div.price"
       name: "Surge 4"
       description: "less than $49"
-      operate: lt
+      operate: diff
       target-value: "$49.99"
       url: "https://nssurge.com/buy_now"
     -
       css-selector: "body > div:nth-child(9) > div > div.itemInfo-wrap > div.summary.summary-first > div > div.summary-price.J-summary-price > div.dd > span.p-price > span.price.J-p-2187061"
       name: "Apple Magic Mouse"
       description: "less than ¥564"
-      operate: lt
+      operate: diff
       target-value: "564.00"
       url: "https://item.jd.com/2187061.html"
     -
       css-selector: "#ember194 > div > div.l-column.small-7.medium-8.large-9.small-valign-top > header > ul:nth-child(5) > li > ul > li.inline-list__item.inline-list__item--bulleted.app-header__list__item--price"
       name: "Notability"
       description: "less than ¥60.00"
-      operate: lt
+      operate: eq
       target-value: "¥60.00"
       url: "https://apps.apple.com/cn/app/notability/id360593530"
+      check-period: 20s
 

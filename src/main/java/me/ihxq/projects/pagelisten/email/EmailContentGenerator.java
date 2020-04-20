@@ -95,7 +95,7 @@ public class EmailContentGenerator {
             "                                        </td>\n" +
             "                                    </tr>\n";
 
-    private String serializeToHtml(ChangeRecord record) {
+    private String convertToHtml(ChangeRecord record) {
         return DETAIL_ROW_TEMPLATE.replace("${name}", record.getName())
                 .replace("${description}", record.getDescription())
                 .replace("${hit}", record.getHit() == null ? "-" : record.getHit() ? "YES" : "NO")
@@ -107,9 +107,15 @@ public class EmailContentGenerator {
                 .replace("¥", "&yen;");
     }
 
+    public String serializeToHtml(ChangeRecord record) {
+        String detailRow = this.convertToHtml(record);
+        return REPORT_TEMPLATE.replace("${summary}", "Hit " + record.getName() + "! " + record.getResultDescription())
+                .replace("${detailRows}", detailRow);
+    }
+
     public String serializeToHtml(ChangeReport report) {
-        String detalRows = report.getDetail().stream()
-                .map(this::serializeToHtml)
+        String detailRows = report.getDetail().stream()
+                .map(this::convertToHtml)
                 .collect(Collectors.joining());
         String summary = "Hit: " + report.getHit()
                 + "; Total: " + report.getTotal()
@@ -118,6 +124,6 @@ public class EmailContentGenerator {
                 + "; Run duration: " + Duration.between(report.getStartTime(), report.getEndTime())
                 + ";";
         return REPORT_TEMPLATE.replace("${summary}", summary)
-                .replace("${detailRows}", detalRows);
+                .replace("${detailRows}", detailRows);
     }
 }

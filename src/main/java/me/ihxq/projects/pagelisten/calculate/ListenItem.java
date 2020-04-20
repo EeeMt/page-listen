@@ -24,16 +24,27 @@ public class ListenItem {
     private String url;
     private String cssSelector;
     private String xpathSelector;
+    /**
+     * the time out duration of wait for element.
+     * <p>
+     * default is 10 seconds
+     */
     @Builder.Default
     private Duration waitTimeout = Duration.ofSeconds(10);
-
     /**
-     * default is 10 seconds
-     *
-     * @return the time out duration of wait for element
+     * the check period of check.
+     * <p>
+     * default is 10 minutes
      */
+    @Builder.Default
+    private Duration checkPeriod = Duration.ofMinutes(10);
+
     public Duration getWaitTimeout() {
         return waitTimeout == null ? Duration.ofSeconds(10) : waitTimeout;
+    }
+
+    public Duration getCheckPeriod() {
+        return checkPeriod == null ? Duration.ofMinutes(10) : checkPeriod;
     }
 
     public Optional<String> getName() {

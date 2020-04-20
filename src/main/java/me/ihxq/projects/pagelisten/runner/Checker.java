@@ -10,9 +10,12 @@ import me.ihxq.projects.pagelisten.email.EmailSender;
 import org.openqa.selenium.By;
 import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriverException;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.mail.MessagingException;
+
+import static me.ihxq.projects.pagelisten.config.RetryTemplateConfig.TASK_NAME_ATTR_NAME;
 
 /**
  * @author xq.h
@@ -24,17 +27,19 @@ public class Checker {
     private final EmailSender emailSender;
     private final RunConfig runConfig;
     private final Sniffer sniffer;
+    private final RetryTemplate retryTemplate;
 
     public Checker(EmailSender emailSender,
                    RunConfig runConfig,
-                   Sniffer sniffer) {
+                   Sniffer sniffer, RetryTemplate retryTemplate) {
         this.emailSender = emailSender;
         this.runConfig = runConfig;
         this.sniffer = sniffer;
+        this.retryTemplate = retryTemplate;
     }
 
-    public ChangeRecord check(ListenItem item, boolean sendEmailOnHit) {
-        log.info("Check for {}", item);
+    public synchronized ChangeRecord check(ListenItem item, boolean sendEmailOnHit) {
+        log.info("Check for {}", log.isDebugEnabled() ? item : item.getName().orElse("UNKNOWN"));
         By selector = item.getSelector().orElseThrow(() -> new RuntimeException("No selector."));
         String url = item.getUrl().orElseThrow(() -> new RuntimeException("No url."));
         String targetValue = item.getTargetValue().orElseThrow(() -> new RuntimeException("No target value."));
@@ -49,7 +54,10 @@ public class Checker {
         Boolean hit = null;
         String operateResultDescription = null;
         try {
-            content = sniffer.sniff(url, selector, item.getWaitTimeout());
+            content = retryTemplate.execute(context -> {
+                context.setAttribute(TASK_NAME_ATTR_NAME, "Sniff '" + url + "'");
+                return sniffer.sniff(url, selector, item.getWaitTimeout());
+            });
             OperateResult operateResult = operator.operate(content, targetValue);
             operateResultDescription = operateResult.getResultDescription();
             hit = operateResult.isHit();
@@ -81,7 +89,8 @@ public class Checker {
                 .success(success)
                 .resultDescription(operateResultDescription)
                 .build();
-        if (sendEmailOnHit) {
+        log.info("Check {} result: {}", item.getName().orElse("UNKNOWN"), hit == null ? "-" : hit);
+        if (sendEmailOnHit && Boolean.TRUE.equals(hit)) {
             try {
                 emailSender.send(changeRecord);
             } catch (MessagingException e) {

@@ -8,10 +8,14 @@ import me.ihxq.projects.pagelisten.email.EmailSender;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import javax.mail.MessagingException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -34,7 +38,21 @@ public class Scheduler {
         this.runConfig = runConfig;
     }
 
-    @Scheduled(initialDelay = 1000, fixedRate = Integer.MAX_VALUE)
+    @PostConstruct
+    public void initContinuallyCheck() {
+        ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(runConfig.getListens().size());
+        runConfig.getListens().forEach(v -> {
+            scheduledExecutorService.scheduleWithFixedDelay(() -> {
+                try {
+                    checker.check(v, true);
+                } catch (Exception e) {
+                    log.error("Failed to check for: {}", v, e);
+                }
+            }, 3_000, v.getCheckPeriod().toMillis(), TimeUnit.MILLISECONDS);
+        });
+    }
+
+    @Scheduled(cron = "0 30 8 * * ?")
     public void schedule() throws MessagingException {
         LocalDateTime startTime = LocalDateTime.now();
         List<ChangeRecord> records = runConfig.getListens()
